@@ -37,12 +37,12 @@ getSquaresAlongSlope m y x f r | y >= h = []
 checkSlope :: Map -> Int -> Int -> Int
 checkSlope m f r = length $ filter (== Tree) $ getSquaresAlongSlope m 0 0 f r
 
--- Usage: ./3a inputs/day3
+-- Usage: ./3b inputs/day3
 main :: IO ()
 main = do
         args <- getArgs;
         content <- readFile $ head args;
         let l = lines content;
         let m = toMap l;
-        print $ checkSlope m 1 3
+        print $ product $ map (uncurry $ checkSlope m) [(1, 1), (1, 3), (1, 5), (1, 7), (2, 1)]
         return ()

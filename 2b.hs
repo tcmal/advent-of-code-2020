@@ -18,10 +18,14 @@ lineValid s = valid (lo, hi) c pass
             where [header, pass] = splitOn ": " s
                   (lo, hi, c) = parseHeader header
 
-main :: String -> IO ()
-main file = do 
-        content <- readFile file;
+-- Usage: runghc --ghc-arg="-package split" 2b.hs inputs/day2
+main :: IO ()
+main = do 
+        args <- getArgs;
+        content <- readFile $ head args;
         let l = lines content;
         let nums = filter lineValid l
 
         putStrLn $ show $ length nums;
+
+        return ();
