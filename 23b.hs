@@ -1,11 +1,13 @@
-module Day23B where
+module Main where
 
 import System.Environment (getArgs)
-import Data.List (elemIndex)
 import Text.Printf (printf)
+import qualified Data.IntMap as M;
+import Debug.Trace (trace)
 
 -- Types
-type State = [Int];
+-- Stores the next cup for each cup value.
+type State = M.IntMap Int;
 
 -- Parsing input
 parseLine :: String -> [Int]
@@ -16,34 +18,53 @@ parseFile f = do
                 c <- readFile f
                 return (parseLine c);
 
--- Get the index of the destination cup, given (n - 1)
-getDestIdx :: Int -> [Int] -> Int
-getDestIdx x is | x `elem` is = unwrap $ elemIndex x is
-                | x < minimum is = unwrap $ elemIndex (maximum is) is
-                | otherwise = getDestIdx (x - 1) is
+maxCup :: Int
+maxCup = 1000000
 
--- n, current state, assumes current cup is cup 0
-performMoves :: Int -> State -> State
-performMoves 0 s = s
-performMoves n (c:cs) = performMoves (n - 1) s''
-        where re = c : drop 3 cs
-              as = take 3 cs
-              dI = getDestIdx (c - 1) re
-              s' = take (dI + 1) re ++ as ++ drop (dI + 1) re
-              s'' = moveToFront s' (head $ tail re)
+getNextCup :: State -> Int -> Int;
+getNextCup m n = M.findWithDefault def n m
+      where def = if n == maxCup then 1 else n + 1
+
+-- Get the label of destination cup, given the current cup and the cards set aside
+getDestCup :: Int -> [Int] -> Int
+getDestCup x r | x <= 1 = last [i | i <- [maxCup - 4..maxCup], i `notElem` r]
+               | x - 1 `notElem` r = x - 1
+               | otherwise = getDestCup (x - 1) r
+
+-- Returns new state and whole chain of removed ones
+takeN :: State -> Int -> Int -> (State, [Int])
+takeN s i n = (M.insert i after s, finalIn)
+          where (_:finalIn) = foldr (\_ ks -> ks ++ [s `getNextCup` last ks]) [i] [1..n]
+                after = s `getNextCup` last finalIn
+
+
+-- n, current state, current cup
+performMoves :: Int -> State -> Int -> State
+performMoves 0 m _ = m
+performMoves n m c = performMoves (n - 1) m' (m' `getNextCup` c)
+        where (re, chain) = takeN m c 3
+              d = getDestCup c chain
+              m' = M.fromList [(d, head chain), (last chain, m `getNextCup` d)] `M.union` re
+
+constructState :: [Int] -> State
+constructState xs = M.insert (last xs) (maximum xs + 1) $ inner xs
+  where inner [] = M.empty
+        inner [x] = M.empty
+        inner (x:y:ns) = M.insert x y $ inner (y:ns)
+
+printLinear :: State -> Int -> Int -> String
+printLinear s c n = show $ foldr (\_ l -> l ++ [s `getNextCup` (last l)]) [c] [1..n - 1];
 
 -- Usage: runghc 23b.hs inputs/day23
 main :: IO ()
 main = do 
         args <- getArgs;
-        circ <- parseFile $ head args;
+        ns <- parseFile $ head args;
 
-        let circ' = circ ++ [maximum circ + 1..1000000];
+        let circ = constructState ns;
 
-        let final = performMoves 10000000 circ';
-
-        let oneIdx = unwrap $ elemIndex 1 final;
-        let [a, b] = take 2 $ map ((final!!) .  (`mod` length circ)) [oneIdx + 1, oneIdx + 2]
+        let final = performMoves 10000000 circ (head ns);
+        let [_,a,b] = foldr (\_ l -> l ++ [final `getNextCup` (last l)]) [1] [0..1];
 
         printf "%d * %d = %d\n" a b (a * b);
         return ();
